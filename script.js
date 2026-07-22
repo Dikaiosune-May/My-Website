@@ -98,12 +98,12 @@ document.addEventListener("DOMContentLoaded", () => {
             alert(data.message || "Thank you! Your message has been sent successfully.");
             contactForm.reset();
           } else {
-            alert(data.message || "Failed to send email. Make sure server.js is running.");
+            alert(data.message || "Failed to send email. Please check required fields and try again.");
           }
         })
         .catch((error) => {
           console.error("Error submitting form:", error);
-          alert("Unable to reach backend server. Please make sure node server.js is running.");
+          alert("Network error: Unable to reach the server. Please check your connection and try again.");
         })
         .finally(() => {
           submitBtn.textContent = originalBtnText;

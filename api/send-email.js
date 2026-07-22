@@ -1,70 +1,111 @@
 const nodemailer = require('nodemailer');
 
-module.exports = async (req, res) => {
-  // Only allow POST
-  if (req.method !== 'POST') {
-    return res.status(405).json({ success: false, message: 'Method not allowed' });
-  }
-
-  // CORS headers
+/**
+ * Vercel Serverless Function: /api/send-email
+ * Handles contact form submissions and dispatches email via Nodemailer (Gmail).
+ */
+module.exports = async function handler(req, res) {
+  // 1. Set CORS Headers for all incoming requests
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  // Handle preflight
+  // 2. Handle Preflight OPTIONS request immediately before any method checks
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
 
-  const { name, email, subject, message } = req.body || {};
-
-  // Validation
-  if (!name || !email || !subject || !message) {
-    return res.status(400).json({
+  // 3. Enforce POST Method
+  if (req.method !== 'POST') {
+    console.warn(`[405] Method Not Allowed: ${req.method}`);
+    return res.status(405).json({
       success: false,
-      message: 'Please fill in all fields (Name, Email, Subject, Message).'
+      message: `Method ${req.method} not allowed. Only POST is supported.`
     });
   }
 
-  // Create transporter
-  const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: process.env.EMAIL_USER || 'mdikaiosune@gmail.com',
-      pass: process.env.EMAIL_PASS
-    }
-  });
-
-  // Email to you
-  const mailOptions = {
-    from: `"${name}" <${process.env.EMAIL_USER || 'mdikaiosune@gmail.com'}>`,
-    to: 'mdikaiosune@gmail.com',
-    replyTo: email,
-    subject: `Portfolio Inquiry: ${subject}`,
-    html: `
-      <div style="font-family: Arial, sans-serif; padding: 20px; color: #333; max-width: 600px; border: 1px solid #eee; border-radius: 8px;">
-        <h2 style="color: #0284c7; border-bottom: 2px solid #0284c7; padding-bottom: 8px;">New Contact Form Message</h2>
-        <p><strong>Sender Name:</strong> ${name}</p>
-        <p><strong>Sender Email:</strong> <a href="mailto:${email}">${email}</a></p>
-        <p><strong>Subject:</strong> ${subject}</p>
-        <p><strong>Message:</strong></p>
-        <div style="background: #f8fafc; padding: 15px; border-left: 4px solid #0284c7; border-radius: 4px; white-space: pre-wrap;">${message}</div>
-      </div>
-    `
-  };
-
+  // 4. Top-level Try-Catch block to prevent unhandled function crashes
   try {
+    // Parse request body safely (handles raw strings or parsed JSON objects)
+    let body = req.body;
+    if (typeof body === 'string') {
+      try {
+        body = JSON.parse(body);
+      } catch (parseErr) {
+        console.error('❌ JSON Parsing Error:', parseErr.message);
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid JSON payload sent in request body.'
+        });
+      }
+    }
+
+    const { name, email, subject, message } = body || {};
+
+    // Validate presence of required input fields
+    if (!name || !email || !subject || !message) {
+      console.warn('⚠️ Validation Error - Missing fields:', { name: !!name, email: !!email, subject: !!subject, message: !!message });
+      return res.status(400).json({
+        success: false,
+        message: 'Please fill in all required fields (Name, Email, Subject, Message).'
+      });
+    }
+
+    // Retrieve environment variables
+    const emailUser = process.env.EMAIL_USER || 'mdikaiosune@gmail.com';
+    const emailPass = process.env.EMAIL_PASS;
+
+    // Verify SMTP password configuration
+    if (!emailPass) {
+      console.error('❌ Configuration Error: Missing EMAIL_PASS environment variable in Vercel settings.');
+      return res.status(500).json({
+        success: false,
+        message: 'Server Configuration Error: EMAIL_PASS is not configured in Vercel Environment Variables.'
+      });
+    }
+
+    // Configure Nodemailer transporter
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: emailUser,
+        pass: emailPass
+      }
+    });
+
+    // Build email payload
+    const sanitizeHeader = (str) => String(str).replace(/[\r\n]/g, '');
+    const mailOptions = {
+      from: `"${sanitizeHeader(name)}" <${emailUser}>`,
+      to: 'mdikaiosune@gmail.com',
+      replyTo: sanitizeHeader(email),
+      subject: `Portfolio Inquiry: ${sanitizeHeader(subject)}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; padding: 24px; color: #1e293b; max-width: 600px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
+          <h2 style="color: #06b6d4; border-bottom: 2px solid #06b6d4; padding-bottom: 10px; margin-top: 0;">New Contact Form Submission</h2>
+          <p style="margin: 8px 0;"><strong>Sender Name:</strong> ${name}</p>
+          <p style="margin: 8px 0;"><strong>Sender Email:</strong> <a href="mailto:${email}" style="color: #06b6d4;">${email}</a></p>
+          <p style="margin: 8px 0;"><strong>Subject:</strong> ${subject}</p>
+          <p style="margin: 16px 0 8px 0;"><strong>Message:</strong></p>
+          <div style="background: #f8fafc; padding: 16px; border-left: 4px solid #06b6d4; border-radius: 6px; white-space: pre-wrap; font-size: 0.95rem; line-height: 1.5;">${message}</div>
+        </div>
+      `
+    };
+
+    // Send email
     await transporter.sendMail(mailOptions);
-    console.log(`✅ Email sent successfully from ${name} (${email})`);
+    console.log(`✅ Email successfully sent from "${name}" <${email}>`);
+
     return res.status(200).json({
       success: true,
       message: 'Your message has been sent successfully!'
     });
+
   } catch (error) {
-    console.error('❌ Error sending email:', error.message);
+    console.error('❌ Serverless Execution Exception:', error.stack || error.message || error);
     return res.status(500).json({
       success: false,
-      message: 'Failed to send email. Please try again later.'
+      message: error.message || 'An internal error occurred while sending the message.'
     });
   }
 };
