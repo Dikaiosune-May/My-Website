@@ -1,15 +1,24 @@
 {
   "name": "my-portfolio",
   "version": "1.0.0",
-  "description": "May Dikaiosune Portfolio",
+  "description": "",
+  "main": "server.js",
   "scripts": {
-    "build": "echo 'Static site'",
     "start": "node server.js",
     "dev": "nodemon server.js"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Dikairos/html-css-js-portfolio.git"
+  },
   "keywords": [],
-  "author": "May Dikaiosune",
+  "author": "",
   "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Dikairos/html-css-js-portfolio/issues"
+  },
+  "homepage": "https://github.com/Dikairos/html-css-js-portfolio#readme",
   "dependencies": {
     "body-parser": "^2.3.0",
     "cors": "^2.8.6",
