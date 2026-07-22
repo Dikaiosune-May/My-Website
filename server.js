@@ -1,6 +1,7 @@
 const express = require('express');
 const nodemailer = require('nodemailer');
 const cors = require('cors');
+const path = require('path');
 require('dotenv').config();
 
 const app = express();
@@ -9,6 +10,9 @@ const PORT = process.env.PORT || 5000;
 // Enable CORS and JSON parsing
 app.use(cors());
 app.use(express.json());
+
+// Serve static frontend files (HTML, CSS, JS, images, assets)
+app.use(express.static(path.join(__dirname)));
 
 // Create Nodemailer Transporter using Gmail
 const transporter = nodemailer.createTransport({
@@ -19,11 +23,11 @@ const transporter = nodemailer.createTransport({
   }
 });
 
-// POST endpoint for contact form submission
-app.post('/send-email', async (req, res) => {
+// Shared Email Handler logic
+const handleEmail = async (req, res) => {
   const { name, email, subject, message } = req.body || {};
 
-  // Simple validation check
+  // Validation check
   if (!name || !email || !subject || !message) {
     return res.status(400).json({
       success: false,
@@ -60,14 +64,27 @@ app.post('/send-email', async (req, res) => {
     console.error('❌ Error sending email:', error.message);
     return res.status(500).json({
       success: false,
-      message: 'Failed to send email. Make sure your EMAIL_PASS app password is correctly set in .env'
+      message: 'Failed to send email. Make sure your EMAIL_PASS app password is correctly set.'
     });
   }
+};
+
+// Handle POST endpoints
+app.post('/send-email', handleEmail);
+app.post('/api/send-email', handleEmail);
+
+// Serve index.html for all GET routes
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-app.listen(PORT, () => {
-  console.log(`=================================`);
-  console.log(`🚀 Portfolio Email Server Running`);
-  console.log(`📡 URL: http://localhost:${PORT}/send-email`);
-  console.log(`=================================`);
-});
+module.exports = app;
+
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`=================================`);
+    console.log(`🚀 Portfolio Web Server Running`);
+    console.log(`📡 URL: http://localhost:${PORT}`);
+    console.log(`=================================`);
+  });
+}
